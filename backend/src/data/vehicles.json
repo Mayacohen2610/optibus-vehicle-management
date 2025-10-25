@@ -1,23 +1,30 @@
 [
   {
-    "id": "v1",
-    "licensePlate": "1234567",
-    "model": "Mazda 2",
-    "status": "Available",
-    "createdAt": "2025-10-20T09:00:00.000Z"
-  },
-  {
     "id": "v2",
     "licensePlate": "8901234",
     "model": "Skoda Fabia",
-    "status": "InUse",
+    "status": "Available",
     "createdAt": "2025-10-21T10:00:00.000Z"
   },
   {
     "id": "v3",
     "licensePlate": "5678901",
     "model": "Toyota Corolla",
-    "status": "Maintenance",
+    "status": "Available",
     "createdAt": "2025-10-22T11:00:00.000Z"
+  },
+  {
+    "id": "v1761403306210",
+    "licensePlate": "261098",
+    "model": "SUZUKY",
+    "status": "InUse",
+    "createdAt": "2025-10-25T14:41:46.210Z"
+  },
+  {
+    "id": "v1761403436854",
+    "licensePlate": "AAAA22BBBB",
+    "model": "MAYA",
+    "status": "Available",
+    "createdAt": "2025-10-25T14:43:56.854Z"
   }
 ]

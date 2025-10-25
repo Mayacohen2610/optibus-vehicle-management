@@ -92,11 +92,10 @@ export function editVehicleStatus(licensePlate: string, newStatus: VehicleStatus
     if (vehicle.status === 'Maintenance' && newStatus !== 'Available') {
         return err('ILLEGAL_STATUS_TRANSITION', 'Illegal status transition from Maintenance. Allowed: Available only');
     }
-
-    // Rule: up to 5% (minimum 1) of vehicles can be in Maintenance
+    // Rule: up to 5% of vehicles can be in Maintenance, for small fleets 1 is allowed
     if (newStatus === 'Maintenance' && vehicle.status !== 'Maintenance') {
         const total = vehicles.length;
-        const cap = Math.max(1, Math.floor(total * 0.05));
+        const cap = Math.max(1, Math.floor(total * 0.05)); // This ensures at least 1 vehicle is allowed
         const currentMaintenance = vehicles.filter(v => v.status === 'Maintenance').length;
         if (currentMaintenance + 1 > cap) {
         return err('MAINTENANCE_CAP_EXCEEDED', `Maintenance cap exceeded: up to ${cap} vehicles (5%) allowed`);
