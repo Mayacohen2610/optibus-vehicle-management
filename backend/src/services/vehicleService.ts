@@ -54,19 +54,44 @@ export function listVehicles(): Vehicle[] {
 
 // EDIT vehicle status
 export function editVehicleStatus(licensePlate: string, newStatus: VehicleStatus): Vehicle {
-    // Validate new status
-    if (!['Available', 'InUse', 'Maintenance'].includes(newStatus)) {
-        throw new Error('Invalid vehicle status');
-    }
-    const normalizedPlate = normalizePlate(licensePlate);
-    const vehicle = vehicles.find(v => v.licensePlate === normalizedPlate);
-    if (!vehicle) {
-        throw new Error('Vehicle not found');
-    }
-    vehicle.status = newStatus;
-    fs.writeFileSync(dataPath, JSON.stringify(vehicles, null, 2));
+  // Validate new status value
+  if (!['Available', 'InUse', 'Maintenance'].includes(newStatus)) {
+    throw new Error('Invalid vehicle status');
+  }
+
+  const normalizedPlate = normalizePlate(licensePlate);
+  const vehicle = vehicles.find(v => v.licensePlate === normalizedPlate);
+  if (!vehicle) {
+    throw new Error('Vehicle not found');
+  }
+
+  // No operation: same status as before
+  if (vehicle.status === newStatus) {
     return vehicle;
+  }
+
+  // Rule: when status is Maintenance, only transition to Available is allowed
+  if (vehicle.status === 'Maintenance' && newStatus !== 'Available') {
+    throw new Error('Illegal status transition from Maintenance. Allowed: Available only');
+  }
+
+  // Rule: up to 5% (minimum 1) of vehicles can be in Maintenance
+  if (newStatus === 'Maintenance' && vehicle.status !== 'Maintenance') {
+    const total = vehicles.length;
+    const cap = Math.max(1, Math.floor(total * 0.05));
+    const currentMaintenance = vehicles.filter(v => v.status === 'Maintenance').length;
+
+    if (currentMaintenance + 1 > cap) {
+      throw new Error(`Maintenance cap exceeded: up to ${cap} vehicles (5%) allowed`);
     }
+  }
+
+  // Apply and persist
+  vehicle.status = newStatus;
+  fs.writeFileSync(dataPath, JSON.stringify(vehicles, null, 2));
+  return vehicle;
+}
+
 
 // EDIT an existing vehicle's license plate (only if unique)
 export function editVehicle(id: string, newLicensePlate: string) {

@@ -210,6 +210,63 @@ describe('vehicleService: editVehicleStatus', () => {
     expect(() => service.editVehicleStatus('00-XXX-00', 'Available'))
       .toThrow(/vehicle not found/i);
   });
+
+  test('no-op when target equals current (no state change, no throw)', async () => {
+  const service = await loadService();
+
+  // 11AAA11 starts as Available in baseVehicles
+  const before = service.listVehicles().find(v => v.licensePlate === '11AAA11')!;
+  const returned = service.editVehicleStatus(' 11-aaa-11 ', 'Available');
+
+  // Same object instance and unchanged status
+  expect(returned).toBe(before);
+  expect(returned.status).toBe('Available');
+});
+
+test('Maintenance -> only Allowed to Available (illegal otherwise)', async () => {
+  const service = await loadService();
+
+  // First move a vehicle into Maintenance (legal)
+  const m = service.editVehicleStatus('11-aaa-11', 'Maintenance');
+  expect(m.status).toBe('Maintenance');
+
+  // Any transition out of Maintenance that is not to Available should throw
+  expect(() => service.editVehicleStatus('11-aaa-11', 'InUse'))
+    .toThrow(/maintenance.*allowed.*available/i);
+});
+
+test('Maintenance -> Available is allowed', async () => {
+  const service = await loadService();
+
+  // Move to Maintenance
+  service.editVehicleStatus('11-aaa-11', 'Maintenance');
+
+  // Move back to Available (the only legal transition out of Maintenance)
+  const updated = service.editVehicleStatus('11-aaa-11', 'Available');
+  expect(updated.status).toBe('Available');
+});
+
+test('5% Maintenance cap enforced (min 1)', async () => {
+  // Build a 20-vehicle fleet → cap = max(1, floor(20*0.05)) = 1
+  const fleet = Array.from({ length: 20 }, (_, i) => ({
+    id: String(i + 1),
+    licensePlate: `PLATE${i + 1}`,
+    model: `M-${i + 1}`,
+    status: 'Available',
+    createdAt: '2025-01-01T00:00:00.000Z'
+  }));
+  seedVehiclesFile(fleet);
+  const service = await loadService();
+
+  // First vehicle to Maintenance is allowed
+  const v1 = service.editVehicleStatus('PLATE1', 'Maintenance');
+  expect(v1.status).toBe('Maintenance');
+
+  // Second should exceed the 5% cap and throw
+  expect(() => service.editVehicleStatus('PLATE2', 'Maintenance'))
+    .toThrow(/cap/i);
+});
+
 });
 
 // --------------------
