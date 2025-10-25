@@ -150,6 +150,26 @@ describe('vehicleService: createVehicle & listVehicles', () => {
     expect(() => service.createVehicle('11-aaa-11', 'AnyModel'))
       .toThrow(/already exists/i);
   });
+  test('createVehicle rejects plates shorter than 5 after normalization', async () => {
+  const service = await loadService();
+  // "a-b 1" -> "AB1" (length 3) -> invalid
+  expect(() => service.createVehicle('a-b 1', 'M1'))
+    .toThrow(/invalid license plate/i);
+ });
+
+test('createVehicle rejects plates longer than 10 after normalization', async () => {
+  const service = await loadService();
+  // 11-AAA-22-BBBB -> "11AAA22BBBB" (length 11) -> invalid
+  expect(() => service.createVehicle('11-AAA-22-BBBB', 'M2'))
+    .toThrow(/invalid license plate/i);
+ });
+
+test('createVehicle accepts and normalizes valid alphanumeric 5–10', async () => {
+  const service = await loadService();
+  const created = service.createVehicle(' 22-bbb-33 ', 'Kawasaki-300X');
+  expect(created.licensePlate).toBe('22BBB33'); // normalized
+ });
+
 });
 
 // --------------------
@@ -278,19 +298,27 @@ describe('vehicleService: editVehicle', () => {
     seedVehiclesFile(baseVehicles);
   });
 
-  test('updates license plate when id exists and new plate is unique', async () => {
+  test('updates license plate when id exists and new plate is unique (normalized) and persists', async () => {
     const service = await loadService();
+    const beforeWrites = writeCalls.length;
 
-    // Base has: 11AAA11 (id=1), 22BBB22 (id=2)
-    const updated = service.editVehicle('1', '99ZZZ99');
+    // id=1 currently "11AAA11"; change to a unique normalized plate
+    const updated = service.editVehicle('1', ' 99-zzz-99 ');
     expect(updated).toBeTruthy();
-    expect(updated!.licensePlate).toBe('99ZZZ99');
+    expect(updated!.id).toBe('1');
+    expect(updated!.licensePlate).toBe('99ZZZ99'); // normalized
 
-    // list reflects the change
+    // In-memory list reflects the change
     const after = service.listVehicles();
-    const v1 = after.find(v => v.id === '1');
-    expect(v1).toBeTruthy();
-    expect(v1!.licensePlate).toBe('99ZZZ99');
+    const v1 = after.find(v => v.id === '1')!;
+    expect(v1.licensePlate).toBe('99ZZZ99');
+
+    // Persistence happened
+    expect(writeCalls.length).toBeGreaterThan(beforeWrites);
+    const lastWrite = writeCalls[writeCalls.length - 1];
+    const persisted = JSON.parse(lastWrite.data);
+    const persistedV1 = persisted.find((v: any) => v.id === '1');
+    expect(persistedV1.licensePlate).toBe('99ZZZ99');
   });
 
   test('returns null if vehicle id does not exist', async () => {
@@ -298,29 +326,59 @@ describe('vehicleService: editVehicle', () => {
 
     const res = service.editVehicle('NO_SUCH_ID', '99ZZZ99');
     expect(res).toBeNull();
+
+    // No persistence on failure
+    // (Optional strictness) expect(writeCalls.length).toBe(0) if no earlier writes occurred in this test block
   });
 
-  test('returns null if new license plate already exists on another vehicle', async () => {
+  test('returns null when new normalized plate duplicates another vehicle', async () => {
     const service = await loadService();
+    const beforeWrites = writeCalls.length;
 
-    // new plate equals existing plate of id=2
-    const res = service.editVehicle('1', '22BBB22');
+    // id=2 has "22BBB22"; "22-bbb-22" normalizes to the same value → duplicate
+    const res = service.editVehicle('1', ' 22-bbb-22 ');
     expect(res).toBeNull();
 
-    // verify nothing changed
+    // Nothing changed in memory for vehicle 1
     const after = service.listVehicles();
     const v1 = after.find(v => v.id === '1')!;
     expect(v1.licensePlate).toBe('11AAA11');
+
+    // No persistence on duplicate
+    expect(writeCalls.length).toBe(beforeWrites);
   });
 
-  test('NOTE: no normalization is applied in editVehicle (current behavior)', async () => {
+  test('throws on invalid plate (after normalization)', async () => {
     const service = await loadService();
 
-    // "22-bbb-22" is NOT equal to "22BBB22" (no normalization in editVehicle),
-    // so this will be considered unique and allowed.
-    const updated = service.editVehicle('1', '22-bbb-22');
+    // Too short after normalization: "a-1" -> "A1" (len 2)
+    expect(() => service.editVehicle('1', 'a-1'))
+      .toThrow(/invalid license plate/i);
+
+    // Too long after normalization: "11-AAA-22-BBBB" -> "11AAA22BBBB" (len 11)
+    expect(() => service.editVehicle('1', '11-AAA-22-BBBB'))
+      .toThrow(/invalid license plate/i);
+
+    // Non-alphanumeric chars are stripped by normalization; if result length is invalid → throw
+    expect(() => service.editVehicle('1', '***@@@###'))
+      .toThrow(/invalid license plate/i);
+  });
+
+  test('no-op when same normalized plate; success otherwise and persists', async () => {
+    const service = await loadService();
+
+    // Same normalized plate (adding spaces/dashes) -> no-op, no write
+    const beforeWrites = writeCalls.length;
+    const same = service.editVehicle('1', ' 11-aaa-11 ');
+    expect(same).toBeTruthy();
+    expect(same!.licensePlate).toBe('11AAA11');
+    expect(writeCalls.length).toBe(beforeWrites); // no persistence on no-op
+
+    // Now change to a different unique plate -> write occurs
+    const updated = service.editVehicle('1', '55-xxx-55');
     expect(updated).toBeTruthy();
-    expect(updated!.licensePlate).toBe('22-bbb-22');
+    expect(updated!.licensePlate).toBe('55XXX55');
+    expect(writeCalls.length).toBeGreaterThan(beforeWrites);
   });
 });
 

@@ -23,10 +23,15 @@ export function createVehicle(licensePlate: string, model: string): Vehicle {
   if (!licensePlate) throw new Error('licensePlate is required');
   if (!model) throw new Error('model is required');
 
-  // Normalize before saving
+  // Normalize before validating and saving
   const normalizedPlate = normalizePlate(licensePlate);
 
-  // Check if this normalized plate already exists
+  // Validate license plate format: 5–10 alphanumeric chars AFTER normalization
+  if (!/^[A-Z0-9]{5,10}$/.test(normalizedPlate)) {
+    throw new Error('Invalid license plate: must be 5–10 alphanumeric characters (A–Z, 0–9)');
+  }
+
+  // Prevent duplicates (compare by normalized plate)
   const exists = vehicles.some(v => v.licensePlate === normalizedPlate);
   if (exists) {
     throw new Error('A vehicle with this license plate already exists');
@@ -34,18 +39,16 @@ export function createVehicle(licensePlate: string, model: string): Vehicle {
 
   const newVehicle: Vehicle = {
     id: 'v' + Date.now(),
-    licensePlate: normalizedPlate,  // saved normalized
+    licensePlate: normalizedPlate,
     model,
     status: 'Available',
     createdAt: new Date().toISOString()
   };
 
-  // Save to "database"
   vehicles.push(newVehicle);
   fs.writeFileSync(dataPath, JSON.stringify(vehicles, null, 2));
   return newVehicle;
 }
-
 
 // LIST all vehicles
 export function listVehicles(): Vehicle[] {
@@ -93,17 +96,32 @@ export function editVehicleStatus(licensePlate: string, newStatus: VehicleStatus
 }
 
 
-// EDIT an existing vehicle's license plate (only if unique)
+
+// EDIT an existing vehicle's license plate (normalize, validate, check duplicates, persist)
 export function editVehicle(id: string, newLicensePlate: string) {
   const vehicle = vehicles.find(v => v.id === id);
-  if (!vehicle) return null; // vehicle not found
+  if (!vehicle) return null; // not found
 
-  // Check if another vehicle already has this license plate
-  const duplicate = vehicles.some(v => v.licensePlate === newLicensePlate && v.id !== id);
-  if (duplicate) return null; // license plate already exists
+  // Normalize and validate the target plate
+  const normalized = normalizePlate(newLicensePlate);
+  if (!/^[A-Z0-9]{5,10}$/.test(normalized)) {
+    throw new Error('Invalid license plate: must be 5–10 alphanumeric characters (A–Z, 0–9)');
+  }
 
-  // Update license plate
-  vehicle.licensePlate = newLicensePlate;
+  // No-op: if normalized equals current, do nothing (no write)
+  if (normalized === vehicle.licensePlate) {
+    return vehicle;
+  }
+
+  // Prevent duplicates on OTHER vehicles (compare by normalized plate)
+  const duplicate = vehicles.some(v => v.licensePlate === normalized && v.id !== id);
+  if (duplicate) {
+    return null; // duplicate plate (normalized)
+  }
+
+  // Apply and persist
+  vehicle.licensePlate = normalized;
+  fs.writeFileSync(dataPath, JSON.stringify(vehicles, null, 2));
   return vehicle;
 }
 
