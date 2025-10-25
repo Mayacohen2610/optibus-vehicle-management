@@ -54,5 +54,12 @@
     "model": "MAYA",
     "status": "Available",
     "createdAt": "2025-10-25T14:43:56.854Z"
+  },
+  {
+    "id": "v1761419000618",
+    "licensePlate": "2222444",
+    "model": "TOYOTA",
+    "status": "Available",
+    "createdAt": "2025-10-25T19:03:20.618Z"
   }
 ]

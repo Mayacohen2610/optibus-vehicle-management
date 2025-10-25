@@ -1,9 +1,74 @@
 // frontend/src/App.tsx
 import { useEffect, useMemo, useState } from 'react';
-import { apiListVehicles, apiCreateVehicle, apiEditStatus, apiDeleteVehicle, apiEditPlate } from './api';
+import {
+  apiListVehicles,
+  apiCreateVehicle,
+  apiEditStatus,
+  apiDeleteVehicle,
+  apiEditPlate
+} from './api';
 import type { Vehicle, VehicleStatus } from './types';
 import { errorMessage } from './errorMessages';
 
+/** Detect system theme and react to changes */
+function usePrefersDark() {
+  const get = () =>
+    typeof window !== 'undefined' &&
+    window.matchMedia &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+  const [isDark, setIsDark] = useState<boolean>(get() ?? false);
+
+  useEffect(() => {
+    if (!window.matchMedia) return;
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => setIsDark(mql.matches);
+    mql.addEventListener?.('change', onChange);
+    return () => mql.removeEventListener?.('change', onChange);
+  }, []);
+
+  return isDark;
+}
+
+/** Build a small design token set based on theme */
+function useThemeTokens() {
+  const isDark = usePrefersDark();
+  const palette = isDark
+    ? {
+        bg: '#121212',
+        surface: '#1E1E1E',
+        surface2: '#232323',
+        text: '#FFFFFF',
+        textMuted: '#B8B8B8',
+        border: '#383838',
+        accent: '#7CB5FF',
+        danger: '#FF6B6B',
+        success: '#3DDC84',
+        inputBg: '#1A1A1A',
+        optionBg: '#1A1A1A'
+      }
+    : {
+        bg: '#F6F7FB',
+        surface: '#FFFFFF',
+        surface2: '#FAFAFA',
+        text: '#1C1C1C',
+        textMuted: '#60646C',
+        border: '#E5E7EB',
+        accent: '#2563EB',
+        danger: '#DC2626',
+        success: '#16A34A',
+        inputBg: '#FFFFFF',
+        optionBg: '#FFFFFF'
+      };
+
+  const base = {
+    radius: 8,
+    pad: 10,
+    font: 'system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
+  };
+
+  return { isDark, palette, base };
+}
 
 // Simple helper to reset async messages after a while
 function flash(setter: (s: string | null) => void, text: string, ms = 3500) {
@@ -36,8 +101,9 @@ function statusOptionsForRow(current: VehicleStatus, fleet: Vehicle[]) {
   });
 }
 
-
 export default function App() {
+  const { palette, base } = useThemeTokens();
+
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -49,6 +115,10 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
+  // Filter state (All | specific status)
+  const FILTERS: Array<'All' | VehicleStatus> = ['All', 'Available', 'InUse', 'Maintenance'];
+  const [filter, setFilter] = useState<'All' | VehicleStatus>('All');
+
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -58,10 +128,15 @@ export default function App() {
     })();
   }, []);
 
-  // Keep table deterministic (optional)
+  // Apply filter, then sort
+  const filtered = useMemo(() => {
+    if (filter === 'All') return vehicles;
+    return vehicles.filter(v => v.status === filter);
+  }, [vehicles, filter]);
+
   const sorted = useMemo(
-    () => [...vehicles].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
-    [vehicles]
+    () => [...filtered].sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    [filtered]
   );
 
   async function handleCreate(e: React.FormEvent) {
@@ -77,7 +152,6 @@ export default function App() {
 
     const res = await apiCreateVehicle(plate, model);
     if (res.ok) {
-      // Append new vehicle to the list
       setVehicles(vs => [...vs, res.data]);
       setPlate('');
       setModel('');
@@ -94,8 +168,7 @@ export default function App() {
 
     const res = await apiEditStatus(licensePlate, next);
     if (res.ok) {
-      // Replace the updated vehicle in state
-      setVehicles(vs => vs.map(v => v.licensePlate === res.data.licensePlate ? res.data : v));
+      setVehicles(vs => vs.map(v => (v.licensePlate === res.data.licensePlate ? res.data : v)));
       flash(setOk, 'Status updated.');
     } else {
       flash(setError, errorMessage(res.error.code));
@@ -138,51 +211,143 @@ export default function App() {
 
     const res = await apiEditPlate(id, next);
     if (res.ok) {
-      // Replace the updated vehicle in state (match by id)
       setVehicles(vs => vs.map(v => (v.id === id ? res.data : v)));
       flash(setOk, 'License plate updated.');
     } else {
-      // Uses errorMessage(code) for friendly text
       flash(setError, errorMessage(res.error.code));
     }
   }
 
-
+  // Reusable styles
+  const styles = {
+    app: {
+      maxWidth: 900,
+      margin: '2rem auto',
+      padding: '0 1rem',
+      fontFamily: base.font,
+      color: palette.text as string,
+      backgroundColor: palette.bg as string,
+      minHeight: '100vh',
+    } as React.CSSProperties,
+    h1: { margin: '0 0 12px 0' } as React.CSSProperties,
+    card: {
+      backgroundColor: palette.surface,
+      border: `1px solid ${palette.border}`,
+      borderRadius: base.radius,
+      padding: base.pad,
+      marginBottom: 12,
+    } as React.CSSProperties,
+    input: {
+      padding: '8px 10px',
+      border: `1px solid ${palette.border}`,
+      backgroundColor: palette.inputBg,
+      color: palette.text,
+      borderRadius: base.radius,
+      outline: 'none',
+    } as React.CSSProperties,
+    button: {
+      padding: '8px 12px',
+      borderRadius: base.radius,
+      border: `1px solid ${palette.border}`,
+      backgroundColor: palette.surface2,
+      color: palette.text,
+      cursor: 'pointer',
+    } as React.CSSProperties,
+    table: {
+      width: '100%',
+      borderCollapse: 'collapse',
+      backgroundColor: palette.surface,
+      border: `1px solid ${palette.border}`,
+      borderRadius: base.radius,
+      overflow: 'hidden',
+    } as React.CSSProperties,
+    th: {
+      textAlign: 'left' as const,
+      padding: 10,
+      borderBottom: `1px solid ${palette.border}`,
+      backgroundColor: palette.surface2,
+      color: palette.text,
+    },
+    td: {
+      padding: 10,
+      borderTop: `1px solid ${palette.border}`,
+      color: palette.text,
+    } as React.CSSProperties,
+    select: {
+      padding: '6px 8px',
+      border: `1px solid ${palette.border}`,
+      borderRadius: base.radius,
+      backgroundColor: palette.inputBg,
+      color: palette.text,
+      cursor: 'pointer',
+    } as React.CSSProperties,
+    option: {
+      backgroundColor: palette.optionBg,
+      color: palette.text,
+    } as React.CSSProperties,
+    ok: { color: palette.success, marginBottom: 12 } as React.CSSProperties,
+    err: { color: palette.danger, marginBottom: 12 } as React.CSSProperties,
+  };
 
   return (
-    <div style={{ maxWidth: 900, margin: '2rem auto', padding: '0 1rem', fontFamily: 'system-ui' }}>
-      <h1>Vehicle Management</h1>
+    <div style={styles.app}>
+      <h1 style={styles.h1}>Vehicle Management</h1>
 
       {/* Create form */}
-      <form onSubmit={handleCreate} style={{ display: 'flex', gap: 8, margin: '1rem 0' }}>
-        <input
-          placeholder="License plate"
-          value={plate}
-          onChange={e => setPlate(e.target.value)}
-        />
-        <input
-          placeholder="Model"
-          value={model}
-          onChange={e => setModel(e.target.value)}
-        />
-        <button type="submit">Create</button>
-      </form>
+      <div style={styles.card}>
+        <form onSubmit={handleCreate} style={{ display: 'flex', gap: 8 }}>
+          <input
+            placeholder="License plate"
+            value={plate}
+            onChange={e => setPlate(e.target.value)}
+            style={styles.input}
+          />
+          <input
+            placeholder="Model"
+            value={model}
+            onChange={e => setModel(e.target.value)}
+            style={styles.input}
+          />
+          <button type="submit" style={styles.button}>Create</button>
+        </form>
+      </div>
 
       {/* Messages */}
-      {error && <div style={{ color: 'crimson', marginBottom: 12 }}>{error}</div>}
-      {ok && <div style={{ color: 'seagreen', marginBottom: 12 }}>{ok}</div>}
+      {error && <div style={styles.err}>{error}</div>}
+      {ok && <div style={styles.ok}>{ok}</div>}
 
       {/* Table */}
-      {loading ? <div>Loading…</div> : (
-        <table width="100%" cellPadding={6} style={{ borderCollapse: 'collapse' }}>
+      {loading ? (
+        <div>Loading…</div>
+      ) : (
+        <table style={styles.table}>
           <thead>
             <tr>
-              <th align="left">ID</th>
-              <th align="left">Plate</th>
-              <th align="left">Model</th>
-              <th align="left">Status</th>
-              <th align="left">Created</th>
-              <th align="center">Actions</th>
+              <th style={styles.th}>ID</th>
+              <th style={styles.th}>Plate</th>
+              <th style={styles.th}>Model</th>
+
+              {/* Status column header with inline filter (Excel-like) */}
+              <th style={styles.th}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span>Status</span>
+                  <select
+                    value={filter}
+                    onChange={e => setFilter(e.target.value as 'All' | VehicleStatus)}
+                    title="Filter by status"
+                    style={styles.select}
+                  >
+                    {(['All', 'Available', 'InUse', 'Maintenance'] as Array<'All' | VehicleStatus>).map(f => (
+                      <option key={f} value={f} style={styles.option}>
+                        {f}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </th>
+
+              <th style={styles.th}>Created</th>
+              <th style={{ ...styles.th, textAlign: 'center' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -190,37 +355,41 @@ export default function App() {
               const opts = statusOptionsForRow(v.status, vehicles);
               const canDelete = v.status === 'Available';
               return (
-                <tr key={v.id} style={{ borderTop: '1px solid #ddd' }}>
-                  <td>{v.id}</td>
-                  <td>{v.licensePlate}</td>
-                  <td>{v.model}</td>
-                  <td>
+                <tr key={v.id}>
+                  <td style={styles.td}>{v.id}</td>
+                  <td style={styles.td}>{v.licensePlate}</td>
+                  <td style={styles.td}>{v.model}</td>
+                  <td style={styles.td}>
                     <select
                       value={v.status}
                       onChange={e => handleStatusChange(v.licensePlate, e.target.value as VehicleStatus)}
+                      style={styles.select}
                     >
                       {opts.map(o => (
-                        <option key={o.value} value={o.value} disabled={o.disabled}>
+                        <option key={o.value} value={o.value} disabled={o.disabled} style={styles.option}>
                           {o.value}
                         </option>
                       ))}
                     </select>
                   </td>
-                  <td>{new Date(v.createdAt).toLocaleString()}</td>
-                  <td align="center" style={{ whiteSpace: 'nowrap' }}>
+                  <td style={styles.td}>{new Date(v.createdAt).toLocaleString()}</td>
+                  <td style={{ ...styles.td, textAlign: 'center', whiteSpace: 'nowrap' }}>
                     <button
                       onClick={() => handleEditPlate(v.id, v.licensePlate)}
                       title="Edit license plate"
-                      style={{ marginRight: 6 }}
+                      style={{ ...styles.button, marginRight: 6 }}
                     >
                       Edit plate
                     </button>
-
                     <button
                       onClick={() => handleDelete(v.id, v.status)}
                       disabled={!canDelete}
                       title={canDelete ? 'Delete vehicle' : 'Only Available vehicles can be deleted'}
-                      style={{ opacity: canDelete ? 1 : 0.5, cursor: canDelete ? 'pointer' : 'not-allowed' }}
+                      style={{
+                        ...styles.button,
+                        opacity: canDelete ? 1 : 0.5,
+                        cursor: canDelete ? 'pointer' : 'not-allowed'
+                      }}
                     >
                       Delete
                     </button>
@@ -230,7 +399,7 @@ export default function App() {
             })}
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={6} align="center" style={{ padding: 24, color: '#666' }}>
+                <td colSpan={6} style={{ ...styles.td, textAlign: 'center', color: palette.textMuted, padding: 24 }}>
                   No vehicles yet.
                 </td>
               </tr>
@@ -240,5 +409,4 @@ export default function App() {
       )}
     </div>
   );
-
 }
