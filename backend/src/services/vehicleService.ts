@@ -107,14 +107,24 @@ export function editVehicle(id: string, newLicensePlate: string) {
   return vehicle;
 }
 
-// Delete a vehicle by id only if its status is 'Available'
-export function deleteVehicle(id: string) {
+// Delete a vehicle by id only when its status is 'Available'. Persist on success.
+export function deleteVehicle(id: string): boolean {
   const index = vehicles.findIndex(v => v.id === id);
-  if (index === -1) return false; // vehicle not found
+  if (index === -1) {
+    // Not found -> no deletion, no write
+    return false;
+  }
 
   const vehicle = vehicles[index];
-  if (vehicle.status !== 'Available') return false; // can't delete InUse / Maintenance vehicles
 
+  // Only 'Available' vehicles can be deleted
+  if (vehicle.status !== 'Available') {
+    // Not allowed -> no deletion, no write
+    return false;
+  }
+
+  // Apply deletion and persist to file
   vehicles.splice(index, 1);
+  fs.writeFileSync(dataPath, JSON.stringify(vehicles, null, 2));
   return true;
 }

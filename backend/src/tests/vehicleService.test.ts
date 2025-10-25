@@ -384,4 +384,93 @@ describe('vehicleService: deleteVehicle', () => {
     const after = service.listVehicles();
     expect(after).toHaveLength(3); // unchanged
   });
+
+  test('persists to file after successful delete', async () => {
+  // Seed has 3 vehicles; id=1 is Available
+  seedVehiclesFile([
+    { id: '1', licensePlate: '11AAA11', model: 'Model-A', status: 'Available',   createdAt: '2025-01-01T00:00:00.000Z' },
+    { id: '2', licensePlate: '22BBB22', model: 'Model-B', status: 'InUse',       createdAt: '2025-01-02T00:00:00.000Z' },
+    { id: '3', licensePlate: '33CCC33', model: 'Model-C', status: 'Maintenance', createdAt: '2025-01-03T00:00:00.000Z' }
+  ]);
+  const service = await loadService();
+
+  const ok = service.deleteVehicle('1');
+  expect(ok).toBe(true);
+
+  // In-memory list updated
+  const after = service.listVehicles();
+  expect(after).toHaveLength(2);
+  expect(after.some(v => v.id === '1')).toBe(false);
+
+  // Persistence occurred with updated array of length 2
+  expect(writeCalls.length).toBeGreaterThanOrEqual(1);
+  const lastWrite = writeCalls[writeCalls.length - 1];
+  const persisted = JSON.parse(lastWrite.data);
+  expect(persisted).toHaveLength(2);
+  expect(persisted.some((v: any) => v.id === '1')).toBe(false);
+});
+
+test('no write occurs when deleting InUse (not allowed)', async () => {
+  // Reset to known seed
+  seedVehiclesFile([
+    { id: '1', licensePlate: '11AAA11', model: 'Model-A', status: 'Available',   createdAt: '2025-01-01T00:00:00.000Z' },
+    { id: '2', licensePlate: '22BBB22', model: 'Model-B', status: 'InUse',       createdAt: '2025-01-02T00:00:00.000Z' },
+    { id: '3', licensePlate: '33CCC33', model: 'Model-C', status: 'Maintenance', createdAt: '2025-01-03T00:00:00.000Z' }
+  ]);
+  const service = await loadService();
+
+  const beforeWrites = writeCalls.length;
+  const ok = service.deleteVehicle('2');
+  expect(ok).toBe(false);
+
+  // No change in memory
+  const after = service.listVehicles();
+  expect(after).toHaveLength(3);
+  expect(after.some(v => v.id === '2')).toBe(true);
+
+  // No persistence on failure
+  expect(writeCalls.length).toBe(beforeWrites);
+});
+
+test('no write occurs when deleting Maintenance (not allowed)', async () => {
+  // Reset to known seed
+  seedVehiclesFile([
+    { id: '1', licensePlate: '11AAA11', model: 'Model-A', status: 'Available',   createdAt: '2025-01-01T00:00:00.000Z' },
+    { id: '2', licensePlate: '22BBB22', model: 'Model-B', status: 'InUse',       createdAt: '2025-01-02T00:00:00.000Z' },
+    { id: '3', licensePlate: '33CCC33', model: 'Model-C', status: 'Maintenance', createdAt: '2025-01-03T00:00:00.000Z' }
+  ]);
+  const service = await loadService();
+
+  const beforeWrites = writeCalls.length;
+  const ok = service.deleteVehicle('3');
+  expect(ok).toBe(false);
+
+  const after = service.listVehicles();
+  expect(after).toHaveLength(3);
+  expect(after.some(v => v.id === '3')).toBe(true);
+
+  // No persistence on failure
+  expect(writeCalls.length).toBe(beforeWrites);
+});
+
+test('returns false and does not write when id does not exist', async () => {
+  // Reset to known seed
+  seedVehiclesFile([
+    { id: '1', licensePlate: '11AAA11', model: 'Model-A', status: 'Available',   createdAt: '2025-01-01T00:00:00.000Z' },
+    { id: '2', licensePlate: '22BBB22', model: 'Model-B', status: 'InUse',       createdAt: '2025-01-02T00:00:00.000Z' },
+    { id: '3', licensePlate: '33CCC33', model: 'Model-C', status: 'Maintenance', createdAt: '2025-01-03T00:00:00.000Z' }
+  ]);
+  const service = await loadService();
+
+  const beforeWrites = writeCalls.length;
+  const ok = service.deleteVehicle('NO_SUCH_ID');
+  expect(ok).toBe(false);
+
+  const after = service.listVehicles();
+  expect(after).toHaveLength(3);
+
+  // No persistence on failure
+  expect(writeCalls.length).toBe(beforeWrites);
+});
+
 });
