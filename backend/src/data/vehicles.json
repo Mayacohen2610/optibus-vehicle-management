@@ -1,7 +1,49 @@
 [
   {
+    "id": "v1761403176143",
+    "licensePlate": "123456789",
+    "model": "TOYOTA",
+    "status": "Available",
+    "createdAt": "2025-10-25T14:39:36.143Z"
+  },
+  {
+    "id": "v1761403248951",
+    "licensePlate": "987654321",
+    "model": "HONDA",
+    "status": "Available",
+    "createdAt": "2025-10-25T14:40:48.951Z"
+  },
+  {
+    "id": "v1761403271120",
+    "licensePlate": "444444444",
+    "model": "NISSAN",
+    "status": "Available",
+    "createdAt": "2025-10-25T14:41:11.120Z"
+  },
+  {
+    "id": "v1761403279876",
+    "licensePlate": "333333333",
+    "model": "CHEVROLET",
+    "status": "InUse",
+    "createdAt": "2025-10-25T14:41:19.876Z"
+  },
+  {
+    "id": "v1761403282567",
+    "licensePlate": "222222222",
+    "model": "BMW",
+    "status": "Available",
+    "createdAt": "2025-10-25T14:41:22.567Z"
+  },
+  {
+    "id": "v1761403285123",
+    "licensePlate": "555555555",
+    "model": "FORD",
+    "status": "Maintenance",
+    "createdAt": "2025-10-25T14:41:25.123Z"
+  },
+  {
     "id": "v1761403306210",
-    "licensePlate": "261098",
+    "licensePlate": "666666666",
     "model": "SUZUKY",
     "status": "InUse",
     "createdAt": "2025-10-25T14:41:46.210Z"

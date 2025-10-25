@@ -1,6 +1,6 @@
 // frontend/src/App.tsx
 import { useEffect, useMemo, useState } from 'react';
-import { apiListVehicles, apiCreateVehicle, apiEditStatus, apiDeleteVehicle } from './api';
+import { apiListVehicles, apiCreateVehicle, apiEditStatus, apiDeleteVehicle, apiEditPlate } from './api';
 import type { Vehicle, VehicleStatus } from './types';
 import { errorMessage } from './errorMessages';
 
@@ -124,6 +124,30 @@ export default function App() {
     }
   }
 
+  // Handle license plate edit (normalization/validation/duplication are enforced by backend)
+  async function handleEditPlate(id: string, currentPlate: string) {
+    setError(null);
+    setOk(null);
+
+    const next = prompt('Enter new license plate (will be normalized):', currentPlate);
+    if (next == null) return; // user canceled
+    if (!next.trim()) {
+      flash(setError, 'License plate is required.');
+      return;
+    }
+
+    const res = await apiEditPlate(id, next);
+    if (res.ok) {
+      // Replace the updated vehicle in state (match by id)
+      setVehicles(vs => vs.map(v => (v.id === id ? res.data : v)));
+      flash(setOk, 'License plate updated.');
+    } else {
+      // Uses errorMessage(code) for friendly text
+      flash(setError, errorMessage(res.error.code));
+    }
+  }
+
+
 
   return (
     <div style={{ maxWidth: 900, margin: '2rem auto', padding: '0 1rem', fontFamily: 'system-ui' }}>
@@ -183,7 +207,15 @@ export default function App() {
                     </select>
                   </td>
                   <td>{new Date(v.createdAt).toLocaleString()}</td>
-                  <td align="center">
+                  <td align="center" style={{ whiteSpace: 'nowrap' }}>
+                    <button
+                      onClick={() => handleEditPlate(v.id, v.licensePlate)}
+                      title="Edit license plate"
+                      style={{ marginRight: 6 }}
+                    >
+                      Edit plate
+                    </button>
+
                     <button
                       onClick={() => handleDelete(v.id, v.status)}
                       disabled={!canDelete}
@@ -206,7 +238,7 @@ export default function App() {
           </tbody>
         </table>
       )}
-
     </div>
   );
+
 }
