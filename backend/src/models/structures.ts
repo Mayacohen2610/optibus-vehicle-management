@@ -20,7 +20,8 @@ export type ServiceErrorCode =
   | 'INVALID_STATUS'
   | 'ILLEGAL_STATUS_TRANSITION'
   | 'MAINTENANCE_CAP_EXCEEDED'
-  | 'NOT_ALLOWED_STATUS_FOR_DELETE';
+  | 'NOT_ALLOWED_STATUS_FOR_DELETE'
+  | 'ADMIN_APPROVAL_REQUIRED';
 
 export type ServiceError = {
   code: ServiceErrorCode;

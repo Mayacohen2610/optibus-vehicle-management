@@ -2,6 +2,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiListVehicles, apiCreateVehicle, apiEditStatus, apiDeleteVehicle } from './api';
 import type { Vehicle, VehicleStatus } from './types';
+import { errorMessage } from './errorMessages';
+
 
 // Simple helper to reset async messages after a while
 function flash(setter: (s: string | null) => void, text: string, ms = 3500) {
@@ -81,7 +83,7 @@ export default function App() {
       setModel('');
       flash(setOk, 'Vehicle created successfully.');
     } else {
-      flash(setError, res.error.message);
+      flash(setError, errorMessage(res.error.code));
     }
   }
 
@@ -96,12 +98,12 @@ export default function App() {
       setVehicles(vs => vs.map(v => v.licensePlate === res.data.licensePlate ? res.data : v));
       flash(setOk, 'Status updated.');
     } else {
-      flash(setError, res.error.message);
+      flash(setError, errorMessage(res.error.code));
     }
   }
 
-  // Handle deletion (allowed only when status is 'Available')
-  async function handleDelete(id: string, status: string) {
+  // Handle deletion (requires admin token and only when status is 'Available')
+  async function handleDelete(id: string, status: VehicleStatus) {
     setError(null);
     setOk(null);
 
@@ -110,17 +112,18 @@ export default function App() {
       return;
     }
 
-    if (!confirm('Delete this vehicle?')) return;
+    const admin = prompt('Enter admin password to confirm deletion:');
+    if (!admin) return;
 
-    const res = await apiDeleteVehicle(id);
+    const res = await apiDeleteVehicle(id, admin);
     if (res.ok) {
       setVehicles(vs => vs.filter(v => v.id !== id));
       flash(setOk, 'Vehicle deleted.');
     } else {
-      // Backend returns specific code like NOT_ALLOWED_STATUS_FOR_DELETE / VEHICLE_NOT_FOUND
-      flash(setError, res.error.message);
+      flash(setError, errorMessage(res.error.code));
     }
   }
+
 
   return (
     <div style={{ maxWidth: 900, margin: '2rem auto', padding: '0 1rem', fontFamily: 'system-ui' }}>

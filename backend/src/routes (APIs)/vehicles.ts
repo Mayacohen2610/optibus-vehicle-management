@@ -25,8 +25,11 @@ function toHttpStatus(code: ServiceErrorCode): number {
       return 409; // Conflict
     case 'VEHICLE_NOT_FOUND':
       return 404; // Not Found
+    case 'ADMIN_APPROVAL_REQUIRED':
+      return 403; // Forbidden
     default:
       return 500;
+
   }
 }
 
@@ -69,11 +72,26 @@ router.patch('/:id/plate', (req, res) => {
   return sendResult(res, r);
 });
 
-/** DELETE /api/vehicles/:id -> delete if Available */
+
+/** DELETE /api/vehicles/:id -> requires admin token + only if Available */
 router.delete('/:id', (req, res) => {
+  // Simple admin approval via header
+  const token = req.header('x-admin-token');
+  const expected = process.env.ADMIN_DELETE_TOKEN; // set in your env
+  if (!expected || token !== expected) {
+    // Consistent error shape with other endpoints
+    return res.status(403).json({
+      error: { code: 'ADMIN_APPROVAL_REQUIRED', message: 'Admin approval required' }
+    });
+  }
+
   const { id } = req.params;
   const r = deleteVehicle(id);
-  return sendResult(res, r);
+  if (r.ok) return res.json(r.data);
+
+  // Map service errors (existing switch)
+  const status = toHttpStatus(r.error.code);
+  return res.status(status).json({ error: r.error });
 });
 
 export default router;

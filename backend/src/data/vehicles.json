@@ -1,12 +1,5 @@
 [
   {
-    "id": "v2",
-    "licensePlate": "8901234",
-    "model": "Skoda Fabia",
-    "status": "Available",
-    "createdAt": "2025-10-21T10:00:00.000Z"
-  },
-  {
     "id": "v3",
     "licensePlate": "5678901",
     "model": "Toyota Corolla",

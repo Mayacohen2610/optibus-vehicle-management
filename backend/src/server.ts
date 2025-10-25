@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import vehiclesRouter from './routes (APIs)/vehicles';

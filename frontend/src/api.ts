@@ -55,10 +55,14 @@ export async function apiEditPlate(id: string, licensePlate: string): Promise<Re
 }
 
 // Delete
-export async function apiDeleteVehicle(id: string): Promise<Result<{ deletedId: string }>> {
+export async function apiDeleteVehicle(id: string, adminToken: string): Promise<Result<{ deletedId: string }>> {
   const r = await http<{ deletedId: string } | { error: ServiceError }>(`${BASE}/vehicles/${encodeURIComponent(id)}`, {
-    method: 'DELETE'
+    method: 'DELETE',
+    headers: {
+      'x-admin-token': adminToken
+    }
   });
   if ('error' in r) return { ok: false, error: r.error };
   return { ok: true, data: r };
 }
+
