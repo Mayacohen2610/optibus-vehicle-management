@@ -62,12 +62,13 @@ async function loadService() {
 
   // Adjust import path if your service file is elsewhere:
   const service = await import('../services/vehicleService');
+  // We keep the type as any to avoid tight coupling in tests
   return service as unknown as {
-    createVehicle: (licensePlate: string, model: string) => any;
-    listVehicles: () => any[];
-    editVehicleStatus: (licensePlate: string, status: string) => any; 
-    editVehicle: (id: string, newLicensePlate: string) => any | null;
-    deleteVehicle: (id: string) => boolean;
+    createVehicle: (licensePlate: string, model: string) => any; // Result<Vehicle>
+    listVehicles: () => any[];                                   // Vehicle[]
+    editVehicleStatus: (licensePlate: string, status: string) => any; // Result<Vehicle>
+    editVehicle: (id: string, newLicensePlate: string) => any;   // Result<Vehicle>
+    deleteVehicle: (id: string) => any;                          // Result<{ deletedId: string }>
   };
 }
 
@@ -110,14 +111,17 @@ describe('vehicleService: createVehicle & listVehicles', () => {
   test('createVehicle adds a new vehicle, normalizes plate, defaults status=Available, and persists', async () => {
     const service = await loadService();
 
-    const created = service.createVehicle(' 22-bbb-33 ', 'Kawasaki-300X');
-    expect(created).toMatchObject({
-      model: 'Kawasaki-300X',
-      licensePlate: '22BBB33',
-      status: 'Available'
-    });
-    expect(created.id).toMatch(/^v\d+/);
-    expect(typeof created.createdAt).toBe('string');
+    const res = service.createVehicle(' 22-bbb-33 ', 'Kawasaki-300X');
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.data).toMatchObject({
+        model: 'Kawasaki-300X',
+        licensePlate: '22BBB33',
+        status: 'Available'
+      });
+      expect(res.data.id).toMatch(/^v\d+/);
+      expect(typeof res.data.createdAt).toBe('string');
+    }
 
     // Verify in-memory list includes the new item
     const after = service.listVehicles();
@@ -131,45 +135,53 @@ describe('vehicleService: createVehicle & listVehicles', () => {
     expect(persisted).toHaveLength(3);
   });
 
-  test('createVehicle throws if licensePlate is missing', async () => {
+  test('createVehicle rejects plates shorter than 5 after normalization', async () => {
     const service = await loadService();
-    expect(() => service.createVehicle('', 'SomeModel'))
-      .toThrow(/licensePlate is required/i);
+    const res = service.createVehicle('a-b 1', 'M1'); // "AB1" -> length 3 -> invalid
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe('INVALID_LICENSE_PLATE');
+    }
   });
 
-  test('createVehicle throws if model is missing', async () => {
+  test('createVehicle rejects plates longer than 10 after normalization', async () => {
     const service = await loadService();
-    expect(() => service.createVehicle('99-xyz-99', ''))
-      .toThrow(/model is required/i);
+    // 11-AAAA-22-BBBB -> "11AAAA22BBBB" (length 12) -> invalid
+    const res = service.createVehicle('11-AAAA-22-BBBB', 'M2');
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe('INVALID_LICENSE_PLATE');
+    }
+  });
+
+  test('createVehicle returns LICENSE_PLATE_REQUIRED when plate is missing', async () => {
+    const service = await loadService();
+    const res = service.createVehicle('', 'SomeModel');
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe('LICENSE_PLATE_REQUIRED');
+    }
+  });
+
+  test('createVehicle returns MODEL_REQUIRED when model is missing', async () => {
+    const service = await loadService();
+    const res = service.createVehicle('99-xyz-99', '');
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe('MODEL_REQUIRED');
+    }
   });
 
   test('createVehicle prevents duplicates by normalized plate', async () => {
     const service = await loadService();
 
     // baseVehicles already has 11AAA11; this input normalizes to the same
-    expect(() => service.createVehicle('11-aaa-11', 'AnyModel'))
-      .toThrow(/already exists/i);
+    const res = service.createVehicle('11-aaa-11', 'AnyModel');
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe('DUPLICATE_LICENSE_PLATE');
+    }
   });
-  test('createVehicle rejects plates shorter than 5 after normalization', async () => {
-  const service = await loadService();
-  // "a-b 1" -> "AB1" (length 3) -> invalid
-  expect(() => service.createVehicle('a-b 1', 'M1'))
-    .toThrow(/invalid license plate/i);
- });
-
-test('createVehicle rejects plates longer than 10 after normalization', async () => {
-  const service = await loadService();
-  // 11-AAA-22-BBBB -> "11AAA22BBBB" (length 11) -> invalid
-  expect(() => service.createVehicle('11-AAA-22-BBBB', 'M2'))
-    .toThrow(/invalid license plate/i);
- });
-
-test('createVehicle accepts and normalizes valid alphanumeric 5–10', async () => {
-  const service = await loadService();
-  const created = service.createVehicle(' 22-bbb-33 ', 'Kawasaki-300X');
-  expect(created.licensePlate).toBe('22BBB33'); // normalized
- });
-
 });
 
 // --------------------
@@ -186,12 +198,13 @@ describe('vehicleService: editVehicleStatus', () => {
 
     // change 22BBB22 (id "2") from InUse -> Maintenance
     const updated = service.editVehicleStatus('22-bbb-22', 'Maintenance');
-
-    // returned object is the mutated vehicle
-    expect(updated).toMatchObject({
-      licensePlate: '22BBB22', // input is normalized internally
-      status: 'Maintenance'
-    });
+    expect(updated.ok).toBe(true);
+    if (updated.ok) {
+      expect(updated.data).toMatchObject({
+        licensePlate: '22BBB22', // input is normalized internally
+        status: 'Maintenance'
+      });
+    }
 
     // list should reflect the change
     const after = service.listVehicles();
@@ -212,81 +225,100 @@ describe('vehicleService: editVehicleStatus', () => {
     const service = await loadService();
 
     const updated = service.editVehicleStatus(' 11-aaa-11 ', 'InUse');
-    expect(updated.licensePlate).toBe('11AAA11');
-    expect(updated.status).toBe('InUse');
+    expect(updated.ok).toBe(true);
+    if (updated.ok) {
+      expect(updated.data.licensePlate).toBe('11AAA11');
+      expect(updated.data.status).toBe('InUse');
+    }
   });
 
-  test('throws if new status is invalid', async () => {
+  test('returns INVALID_STATUS when new status is invalid', async () => {
     const service = await loadService();
 
-    // invalid status should match the service error message
-    expect(() => service.editVehicleStatus('11-AAA-11', 'Broken' as any))
-      .toThrow(/invalid vehicle status/i);
+    const res = service.editVehicleStatus('11-AAA-11', 'Broken' as any);
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe('INVALID_STATUS');
+    }
   });
 
-  test('throws if vehicle not found', async () => {
+  test('returns VEHICLE_NOT_FOUND if vehicle not found', async () => {
     const service = await loadService();
 
-    expect(() => service.editVehicleStatus('00-XXX-00', 'Available'))
-      .toThrow(/vehicle not found/i);
+    const res = service.editVehicleStatus('00-XXX-00', 'Available');
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe('VEHICLE_NOT_FOUND');
+    }
   });
 
-  test('no-op when target equals current (no state change, no throw)', async () => {
-  const service = await loadService();
+  test('no-op when target equals current (no state change, no write)', async () => {
+    const service = await loadService();
 
-  // 11AAA11 starts as Available in baseVehicles
-  const before = service.listVehicles().find(v => v.licensePlate === '11AAA11')!;
-  const returned = service.editVehicleStatus(' 11-aaa-11 ', 'Available');
+    // 11AAA11 starts as Available in baseVehicles
+    const before = service.listVehicles().find(v => v.licensePlate === '11AAA11')!;
+    const returned = service.editVehicleStatus(' 11-aaa-11 ', 'Available');
+    expect(returned.ok).toBe(true);
+    if (returned.ok) {
+      // Same object instance and unchanged status
+      expect(returned.data).toBe(before);
+      expect(returned.data.status).toBe('Available');
+    }
+  });
 
-  // Same object instance and unchanged status
-  expect(returned).toBe(before);
-  expect(returned.status).toBe('Available');
-});
+  test('Maintenance -> only Allowed to Available (illegal otherwise)', async () => {
+    const service = await loadService();
 
-test('Maintenance -> only Allowed to Available (illegal otherwise)', async () => {
-  const service = await loadService();
+    // First move a vehicle into Maintenance (legal)
+    const m = service.editVehicleStatus('11-aaa-11', 'Maintenance');
+    expect(m.ok).toBe(true);
 
-  // First move a vehicle into Maintenance (legal)
-  const m = service.editVehicleStatus('11-aaa-11', 'Maintenance');
-  expect(m.status).toBe('Maintenance');
+    // Any transition out of Maintenance that is not to Available should be rejected
+    const illegal = service.editVehicleStatus('11-aaa-11', 'InUse');
+    expect(illegal.ok).toBe(false);
+    if (!illegal.ok) {
+      expect(illegal.error.code).toBe('ILLEGAL_STATUS_TRANSITION');
+    }
+  });
 
-  // Any transition out of Maintenance that is not to Available should throw
-  expect(() => service.editVehicleStatus('11-aaa-11', 'InUse'))
-    .toThrow(/maintenance.*allowed.*available/i);
-});
+  test('Maintenance -> Available is allowed', async () => {
+    const service = await loadService();
 
-test('Maintenance -> Available is allowed', async () => {
-  const service = await loadService();
+    // Move to Maintenance
+    const toM = service.editVehicleStatus('11-aaa-11', 'Maintenance');
+    expect(toM.ok).toBe(true);
 
-  // Move to Maintenance
-  service.editVehicleStatus('11-aaa-11', 'Maintenance');
+    // Move back to Available (the only legal transition out of Maintenance)
+    const toA = service.editVehicleStatus('11-aaa-11', 'Available');
+    expect(toA.ok).toBe(true);
+    if (toA.ok) {
+      expect(toA.data.status).toBe('Available');
+    }
+  });
 
-  // Move back to Available (the only legal transition out of Maintenance)
-  const updated = service.editVehicleStatus('11-aaa-11', 'Available');
-  expect(updated.status).toBe('Available');
-});
+  test('5% Maintenance cap enforced (min 1)', async () => {
+    // Build a 20-vehicle fleet → cap = max(1, floor(20*0.05)) = 1
+    const fleet = Array.from({ length: 20 }, (_, i) => ({
+      id: String(i + 1),
+      licensePlate: `PLATE${i + 1}`,
+      model: `M-${i + 1}`,
+      status: 'Available',
+      createdAt: '2025-01-01T00:00:00.000Z'
+    }));
+    seedVehiclesFile(fleet);
+    const service = await loadService();
 
-test('5% Maintenance cap enforced (min 1)', async () => {
-  // Build a 20-vehicle fleet → cap = max(1, floor(20*0.05)) = 1
-  const fleet = Array.from({ length: 20 }, (_, i) => ({
-    id: String(i + 1),
-    licensePlate: `PLATE${i + 1}`,
-    model: `M-${i + 1}`,
-    status: 'Available',
-    createdAt: '2025-01-01T00:00:00.000Z'
-  }));
-  seedVehiclesFile(fleet);
-  const service = await loadService();
+    // First vehicle to Maintenance is allowed
+    const v1 = service.editVehicleStatus('PLATE1', 'Maintenance');
+    expect(v1.ok).toBe(true);
 
-  // First vehicle to Maintenance is allowed
-  const v1 = service.editVehicleStatus('PLATE1', 'Maintenance');
-  expect(v1.status).toBe('Maintenance');
-
-  // Second should exceed the 5% cap and throw
-  expect(() => service.editVehicleStatus('PLATE2', 'Maintenance'))
-    .toThrow(/cap/i);
-});
-
+    // Second should exceed the 5% cap and be rejected
+    const v2 = service.editVehicleStatus('PLATE2', 'Maintenance');
+    expect(v2.ok).toBe(false);
+    if (!v2.ok) {
+      expect(v2.error.code).toBe('MAINTENANCE_CAP_EXCEEDED');
+    }
+  });
 });
 
 // --------------------
@@ -294,8 +326,23 @@ test('5% Maintenance cap enforced (min 1)', async () => {
 // --------------------
 describe('vehicleService: editVehicle', () => {
   beforeEach(() => {
-    // start every test from the same seed of 2 vehicles
-    seedVehiclesFile(baseVehicles);
+    // Start every test from the same 2-vehicle seed
+    seedVehiclesFile([
+      {
+        id: '1',
+        licensePlate: '11AAA11',
+        model: 'Model-A',
+        status: 'Available',
+        createdAt: '2025-01-01T00:00:00.000Z'
+      },
+      {
+        id: '2',
+        licensePlate: '22BBB22',
+        model: 'Model-B',
+        status: 'InUse',
+        createdAt: '2025-01-02T00:00:00.000Z'
+      }
+    ]);
   });
 
   test('updates license plate when id exists and new plate is unique (normalized) and persists', async () => {
@@ -303,10 +350,12 @@ describe('vehicleService: editVehicle', () => {
     const beforeWrites = writeCalls.length;
 
     // id=1 currently "11AAA11"; change to a unique normalized plate
-    const updated = service.editVehicle('1', ' 99-zzz-99 ');
-    expect(updated).toBeTruthy();
-    expect(updated!.id).toBe('1');
-    expect(updated!.licensePlate).toBe('99ZZZ99'); // normalized
+    const res = service.editVehicle('1', ' 99-zzz-99 ');
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.data.id).toBe('1');
+      expect(res.data.licensePlate).toBe('99ZZZ99'); // normalized
+    }
 
     // In-memory list reflects the change
     const after = service.listVehicles();
@@ -321,23 +370,26 @@ describe('vehicleService: editVehicle', () => {
     expect(persistedV1.licensePlate).toBe('99ZZZ99');
   });
 
-  test('returns null if vehicle id does not exist', async () => {
+  test('returns VEHICLE_NOT_FOUND if vehicle id does not exist', async () => {
     const service = await loadService();
 
     const res = service.editVehicle('NO_SUCH_ID', '99ZZZ99');
-    expect(res).toBeNull();
-
-    // No persistence on failure
-    // (Optional strictness) expect(writeCalls.length).toBe(0) if no earlier writes occurred in this test block
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe('VEHICLE_NOT_FOUND');
+    }
   });
 
-  test('returns null when new normalized plate duplicates another vehicle', async () => {
+  test('returns DUPLICATE_LICENSE_PLATE when new normalized plate duplicates another vehicle', async () => {
     const service = await loadService();
     const beforeWrites = writeCalls.length;
 
     // id=2 has "22BBB22"; "22-bbb-22" normalizes to the same value → duplicate
     const res = service.editVehicle('1', ' 22-bbb-22 ');
-    expect(res).toBeNull();
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe('DUPLICATE_LICENSE_PLATE');
+    }
 
     // Nothing changed in memory for vehicle 1
     const after = service.listVehicles();
@@ -348,20 +400,29 @@ describe('vehicleService: editVehicle', () => {
     expect(writeCalls.length).toBe(beforeWrites);
   });
 
-  test('throws on invalid plate (after normalization)', async () => {
+  test('returns INVALID_LICENSE_PLATE on invalid plate (after normalization)', async () => {
     const service = await loadService();
 
     // Too short after normalization: "a-1" -> "A1" (len 2)
-    expect(() => service.editVehicle('1', 'a-1'))
-      .toThrow(/invalid license plate/i);
+    const tooShort = service.editVehicle('1', 'a-1');
+    expect(tooShort.ok).toBe(false);
+    if (!tooShort.ok) {
+      expect(tooShort.error.code).toBe('INVALID_LICENSE_PLATE');
+    }
 
-    // Too long after normalization: "11-AAA-22-BBBB" -> "11AAA22BBBB" (len 11)
-    expect(() => service.editVehicle('1', '11-AAA-22-BBBB'))
-      .toThrow(/invalid license plate/i);
+    // Too long after normalization: "11-AAAA-22-BBBB" -> "11AAAA22BBBB" (len 12)
+    const tooLong = service.editVehicle('1', '11-AAAA-22-BBBB');
+    expect(tooLong.ok).toBe(false);
+    if (!tooLong.ok) {
+      expect(tooLong.error.code).toBe('INVALID_LICENSE_PLATE');
+    }
 
-    // Non-alphanumeric chars are stripped by normalization; if result length is invalid → throw
-    expect(() => service.editVehicle('1', '***@@@###'))
-      .toThrow(/invalid license plate/i);
+    // Non-alphanumeric -> normalization leaves "", still invalid
+    const nonAlnum = service.editVehicle('1', '***@@@###');
+    expect(nonAlnum.ok).toBe(false);
+    if (!nonAlnum.ok) {
+      expect(nonAlnum.error.code).toBe('INVALID_LICENSE_PLATE');
+    }
   });
 
   test('no-op when same normalized plate; success otherwise and persists', async () => {
@@ -370,14 +431,18 @@ describe('vehicleService: editVehicle', () => {
     // Same normalized plate (adding spaces/dashes) -> no-op, no write
     const beforeWrites = writeCalls.length;
     const same = service.editVehicle('1', ' 11-aaa-11 ');
-    expect(same).toBeTruthy();
-    expect(same!.licensePlate).toBe('11AAA11');
+    expect(same.ok).toBe(true);
+    if (same.ok) {
+      expect(same.data.licensePlate).toBe('11AAA11');
+    }
     expect(writeCalls.length).toBe(beforeWrites); // no persistence on no-op
 
     // Now change to a different unique plate -> write occurs
     const updated = service.editVehicle('1', '55-xxx-55');
-    expect(updated).toBeTruthy();
-    expect(updated!.licensePlate).toBe('55XXX55');
+    expect(updated.ok).toBe(true);
+    if (updated.ok) {
+      expect(updated.data.licensePlate).toBe('55XXX55');
+    }
     expect(writeCalls.length).toBeGreaterThan(beforeWrites);
   });
 });
@@ -397,138 +462,70 @@ describe('vehicleService: deleteVehicle', () => {
     seedVehiclesFile(seed3);
   });
 
-  test('deletes vehicle only when status is Available', async () => {
+  test('deletes vehicle only when status is Available and persists', async () => {
     const service = await loadService();
 
     // id=1 is Available
-    const ok = service.deleteVehicle('1');
-    expect(ok).toBe(true);
+    const res = service.deleteVehicle('1');
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.data.deletedId).toBe('1');
+    }
 
     const after = service.listVehicles();
     expect(after.some(v => v.id === '1')).toBe(false);
     expect(after).toHaveLength(2); // started with 3, deleted 1
+
+    // Persistence occurred with updated array of length 2
+    expect(writeCalls.length).toBeGreaterThanOrEqual(1);
+    const lastWrite = writeCalls[writeCalls.length - 1];
+    const persisted = JSON.parse(lastWrite.data);
+    expect(persisted).toHaveLength(2);
+    expect(persisted.some((v: any) => v.id === '1')).toBe(false);
   });
 
-  test('returns false when trying to delete InUse', async () => {
+  test('returns NOT_ALLOWED_STATUS_FOR_DELETE when trying to delete InUse', async () => {
     const service = await loadService();
 
     // id=2 is InUse
-    const ok = service.deleteVehicle('2');
-    expect(ok).toBe(false);
+    const res = service.deleteVehicle('2');
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe('NOT_ALLOWED_STATUS_FOR_DELETE');
+    }
 
     const after = service.listVehicles();
     expect(after).toHaveLength(3); // unchanged
     expect(after.some(v => v.id === '2')).toBe(true);
   });
 
-  test('returns false when trying to delete Maintenance', async () => {
+  test('returns NOT_ALLOWED_STATUS_FOR_DELETE when trying to delete Maintenance', async () => {
     const service = await loadService();
 
     // id=3 is Maintenance
-    const ok = service.deleteVehicle('3');
-    expect(ok).toBe(false);
+    const res = service.deleteVehicle('3');
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe('NOT_ALLOWED_STATUS_FOR_DELETE');
+    }
 
     const after = service.listVehicles();
     expect(after).toHaveLength(3); // unchanged
     expect(after.some(v => v.id === '3')).toBe(true);
   });
 
-  test('returns false when id does not exist', async () => {
+  test('returns VEHICLE_NOT_FOUND when id does not exist', async () => {
     const service = await loadService();
 
-    const ok = service.deleteVehicle('NO_SUCH_ID');
-    expect(ok).toBe(false);
+    const res = service.deleteVehicle('NO_SUCH_ID');
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe('VEHICLE_NOT_FOUND');
+    }
 
     const after = service.listVehicles();
     expect(after).toHaveLength(3); // unchanged
   });
-
-  test('persists to file after successful delete', async () => {
-  // Seed has 3 vehicles; id=1 is Available
-  seedVehiclesFile([
-    { id: '1', licensePlate: '11AAA11', model: 'Model-A', status: 'Available',   createdAt: '2025-01-01T00:00:00.000Z' },
-    { id: '2', licensePlate: '22BBB22', model: 'Model-B', status: 'InUse',       createdAt: '2025-01-02T00:00:00.000Z' },
-    { id: '3', licensePlate: '33CCC33', model: 'Model-C', status: 'Maintenance', createdAt: '2025-01-03T00:00:00.000Z' }
-  ]);
-  const service = await loadService();
-
-  const ok = service.deleteVehicle('1');
-  expect(ok).toBe(true);
-
-  // In-memory list updated
-  const after = service.listVehicles();
-  expect(after).toHaveLength(2);
-  expect(after.some(v => v.id === '1')).toBe(false);
-
-  // Persistence occurred with updated array of length 2
-  expect(writeCalls.length).toBeGreaterThanOrEqual(1);
-  const lastWrite = writeCalls[writeCalls.length - 1];
-  const persisted = JSON.parse(lastWrite.data);
-  expect(persisted).toHaveLength(2);
-  expect(persisted.some((v: any) => v.id === '1')).toBe(false);
 });
 
-test('no write occurs when deleting InUse (not allowed)', async () => {
-  // Reset to known seed
-  seedVehiclesFile([
-    { id: '1', licensePlate: '11AAA11', model: 'Model-A', status: 'Available',   createdAt: '2025-01-01T00:00:00.000Z' },
-    { id: '2', licensePlate: '22BBB22', model: 'Model-B', status: 'InUse',       createdAt: '2025-01-02T00:00:00.000Z' },
-    { id: '3', licensePlate: '33CCC33', model: 'Model-C', status: 'Maintenance', createdAt: '2025-01-03T00:00:00.000Z' }
-  ]);
-  const service = await loadService();
-
-  const beforeWrites = writeCalls.length;
-  const ok = service.deleteVehicle('2');
-  expect(ok).toBe(false);
-
-  // No change in memory
-  const after = service.listVehicles();
-  expect(after).toHaveLength(3);
-  expect(after.some(v => v.id === '2')).toBe(true);
-
-  // No persistence on failure
-  expect(writeCalls.length).toBe(beforeWrites);
-});
-
-test('no write occurs when deleting Maintenance (not allowed)', async () => {
-  // Reset to known seed
-  seedVehiclesFile([
-    { id: '1', licensePlate: '11AAA11', model: 'Model-A', status: 'Available',   createdAt: '2025-01-01T00:00:00.000Z' },
-    { id: '2', licensePlate: '22BBB22', model: 'Model-B', status: 'InUse',       createdAt: '2025-01-02T00:00:00.000Z' },
-    { id: '3', licensePlate: '33CCC33', model: 'Model-C', status: 'Maintenance', createdAt: '2025-01-03T00:00:00.000Z' }
-  ]);
-  const service = await loadService();
-
-  const beforeWrites = writeCalls.length;
-  const ok = service.deleteVehicle('3');
-  expect(ok).toBe(false);
-
-  const after = service.listVehicles();
-  expect(after).toHaveLength(3);
-  expect(after.some(v => v.id === '3')).toBe(true);
-
-  // No persistence on failure
-  expect(writeCalls.length).toBe(beforeWrites);
-});
-
-test('returns false and does not write when id does not exist', async () => {
-  // Reset to known seed
-  seedVehiclesFile([
-    { id: '1', licensePlate: '11AAA11', model: 'Model-A', status: 'Available',   createdAt: '2025-01-01T00:00:00.000Z' },
-    { id: '2', licensePlate: '22BBB22', model: 'Model-B', status: 'InUse',       createdAt: '2025-01-02T00:00:00.000Z' },
-    { id: '3', licensePlate: '33CCC33', model: 'Model-C', status: 'Maintenance', createdAt: '2025-01-03T00:00:00.000Z' }
-  ]);
-  const service = await loadService();
-
-  const beforeWrites = writeCalls.length;
-  const ok = service.deleteVehicle('NO_SUCH_ID');
-  expect(ok).toBe(false);
-
-  const after = service.listVehicles();
-  expect(after).toHaveLength(3);
-
-  // No persistence on failure
-  expect(writeCalls.length).toBe(beforeWrites);
-});
-
-});
+export { writeCalls }; // exported for potential extra assertions in other files
