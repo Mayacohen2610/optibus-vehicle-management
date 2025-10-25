@@ -68,12 +68,13 @@ Before running the project, make sure the following are installed:
 
 ### 1. Clone the repository
 ```bash
-git clone <repository_url>
+git clone https://github.com/Mayacohen2610/optibus-vehicle-management.git
 cd optibus-vehicle-management
 ```
 
 ### 2. Install all dependencies
 ```bash
+npm install
 npm run install:all
 ```
 
