@@ -1,7 +1,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { VehicleStatus, Vehicle } from '../models/structures';
+import { VehicleStatus, Vehicle, DeleteResult } from '../models/structures';
 
 
 // Load existing vehicles from JSON file
@@ -82,14 +82,25 @@ export function editVehicle(id: string, newLicensePlate: string) {
   return vehicle;
 }
 
+
 // Delete a vehicle by id only if its status is 'Available'
-export function deleteVehicle(id: string) {
+export function deleteVehicle(id: string): DeleteResult {
   const index = vehicles.findIndex(v => v.id === id);
-  if (index === -1) return false; // vehicle not found
+  if (index === -1) {
+    return { ok: false, code: 'NOT_FOUND', message: 'Vehicle not found' };
+  }
 
   const vehicle = vehicles[index];
-  if (vehicle.status !== 'Available') return false; // can't delete InUse / Maintenance vehicles
+
+  // Business rule: only Available vehicles can be deleted
+  if (vehicle.status !== 'Available') {
+    return {
+      ok: false,
+      code: 'NOT_ALLOWED_STATUS',
+      message: 'Only vehicles with status "Available" can be deleted',
+    };
+  }
 
   vehicles.splice(index, 1);
-  return true;
+  return { ok: true };
 }
