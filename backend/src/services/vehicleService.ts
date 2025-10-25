@@ -1,8 +1,7 @@
-// All comments in English
 
 import fs from 'fs';
 import path from 'path';
-import { VehicleStatus, Vehicle } from '../models/vehicle';
+import { VehicleStatus, Vehicle } from '../models/structures';
 
 
 // Load existing vehicles from JSON file
@@ -68,3 +67,29 @@ export function editVehicleStatus(licensePlate: string, newStatus: VehicleStatus
     fs.writeFileSync(dataPath, JSON.stringify(vehicles, null, 2));
     return vehicle;
     }
+
+// EDIT an existing vehicle's license plate (only if unique)
+export function editVehicle(id: string, newLicensePlate: string) {
+  const vehicle = vehicles.find(v => v.id === id);
+  if (!vehicle) return null; // vehicle not found
+
+  // Check if another vehicle already has this license plate
+  const duplicate = vehicles.some(v => v.licensePlate === newLicensePlate && v.id !== id);
+  if (duplicate) return null; // license plate already exists
+
+  // Update license plate
+  vehicle.licensePlate = newLicensePlate;
+  return vehicle;
+}
+
+// Delete a vehicle by id only if its status is 'Available'
+export function deleteVehicle(id: string) {
+  const index = vehicles.findIndex(v => v.id === id);
+  if (index === -1) return false; // vehicle not found
+
+  const vehicle = vehicles[index];
+  if (vehicle.status !== 'Available') return false; // can't delete InUse / Maintenance vehicles
+
+  vehicles.splice(index, 1);
+  return true;
+}

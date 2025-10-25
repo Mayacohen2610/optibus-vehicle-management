@@ -1,0 +1,50 @@
+# ===== Node.js =====
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===== Build output =====
+dist/
+build/
+out/
+
+# ===== Environment files =====
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ===== TypeScript =====
+*.tsbuildinfo
+
+# ===== Logs =====
+logs/
+*.log
+
+# ===== Coverage / Test output =====
+coverage/
+jest-cache/
+jest-temp/
+.tmp/
+
+# ===== System / Editor =====
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ===== Temporary files =====
+temp/
+*.tmp
+
+# ===== Frontend build =====
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+
+# ===== Backend build =====
+backend/node_modules/
+backend/dist/
+backend/build/
