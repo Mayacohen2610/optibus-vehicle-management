@@ -104,7 +104,7 @@ export function editVehicleStatus(licensePlate: string, newStatus: VehicleStatus
 
     // Apply and persist
     vehicle.status = newStatus;
-    persist();
+    persist(); // TODO: check
     return { ok: true, data: vehicle };
     }
 

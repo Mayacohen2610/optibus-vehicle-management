@@ -6,12 +6,11 @@
     "status": "Available",
     "createdAt": "2025-10-25T14:39:36.143Z"
   },
-
   {
     "id": "v1761403271120",
     "licensePlate": "444444444",
     "model": "NISSAN",
-    "status": "Available",
+    "status": "InUse",
     "createdAt": "2025-10-25T14:41:11.120Z"
   },
   {
@@ -34,6 +33,19 @@
     "model": "FORD",
     "status": "Maintenance",
     "createdAt": "2025-10-25T14:41:25.123Z"
+  },
+  {
+    "id": "v1762116401117",
+    "licensePlate": "123456",
+    "model": "MAYA",
+    "status": "Available",
+    "createdAt": "2025-11-02T20:46:41.117Z"
+  },
+  {
+    "id": "v1762116559631",
+    "licensePlate": "12345",
+    "model": "Mor",
+    "status": "Available",
+    "createdAt": "2025-11-02T20:49:19.631Z"
   }
-
 ]
