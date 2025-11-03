@@ -42,6 +42,13 @@ optibus-vehicle-management/
 │   │   ├── assets/
 │   │   ├── api.ts
 │   │   ├── App.tsx
+│   │   ├── components/
+│   │   │   ├── CreateForm.tsx
+│   │   │   └── VehicleTable.tsx
+│   │   ├── hooks/
+│   │   │   └── useVehicles.ts
+│   │   ├── styles.ts
+│   │   ├── utils.ts
 │   │   ├── errorMessages.ts
 │   │   ├── main.tsx
 │   │   └── types.ts
