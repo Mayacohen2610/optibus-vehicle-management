@@ -34,8 +34,8 @@ function toHttpStatus(code: ServiceErrorCode): number {
   }
 }
 
-/** Uniform sender for Result<T> */
-function sendResult<T>(res: any, result: any, successStatus: number = 200) {
+/** Uniform sender for Result */
+function sendResult(res: any, result: any, successStatus: number = 200) {
   if (result.ok) {
     return res.status(successStatus).json(result.data);
   }
@@ -78,7 +78,7 @@ router.patch('/:id/plate', (req, res) => {
 router.delete('/:id', (req, res) => {
   // Simple admin approval via header
   const token = req.header('x-admin-token');
-  const expected = process.env.ADMIN_DELETE_TOKEN; // set in your env
+  const expected = process.env.ADMIN_DELETE_TOKEN; // set in env
   if (!expected || token !== expected) {
     // Consistent error shape with other endpoints
     return res.status(403).json({
@@ -95,4 +95,5 @@ router.delete('/:id', (req, res) => {
   return res.status(status).json({ error: r.error });
 });
 
+// export this router to be used in main server file
 export default router;
