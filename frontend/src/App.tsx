@@ -7,9 +7,11 @@ import CreateForm from './components/CreateForm';
 import VehicleTable from './components/VehicleTable';
 import { useVehicles } from './hooks/useVehicles';
 
+
+
 export default function App() {
   const { palette, base } = useThemeTokens();
-
+  // state and handlers from custom hook
   const {
     vehicles,
     loading,

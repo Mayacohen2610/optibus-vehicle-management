@@ -1,5 +1,5 @@
 {
-  "name": "optibus-vehicle-management",
+  "name": "fleet-manager",
   "private": true,
   "scripts": {
     "install:backend": "cd backend && npm install",

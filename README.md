@@ -1,7 +1,7 @@
-# Vehicle Management App
+# Fleet Manager App
 
 ## 🧭 Overview
-The **Vehicle Management App** is a full-stack project built as part of the Optibus Home Assignment. It allows users to manage a fleet of vehicles — create, edit, delete, and update their current status.
+The **Fleet Manager App** is a full-stack practice project. It allows users to manage a fleet of vehicles — create, edit, delete, and update their current status.
 
 The app demonstrates a clean separation between backend (API + business logic) and frontend (UI + interaction), both written in **TypeScript**.
 
@@ -19,7 +19,7 @@ The app demonstrates a clean separation between backend (API + business logic) a
 
 ## 🧱 Project Structure
 ```
-optibus-vehicle-management/
+fleet-manager/
 ├── backend/
 │   ├── src/
 │   │   ├── data/vehicles.json
@@ -73,10 +73,11 @@ Before running the project, make sure the following are installed:
 
 ## ⚙️ Setup & Installation
 
-### 1. Clone the repository
+### 1. Get the project locally
 ```bash
-git clone https://github.com/Mayacohen2610/optibus-vehicle-management.git
-cd optibus-vehicle-management
+# If you use Git:
+git clone <your-repository-url>
+cd fleet-manager
 ```
 
 ### 2. Install all dependencies
@@ -182,5 +183,5 @@ npm test
 ---
 
 ## 👩‍💻 Author
-Developed by **Maya Cohen** as part of the Optibus Fullstack Developer Assignment.
+Developed by **Maya Cohen** as a personal full-stack practice project.
 
