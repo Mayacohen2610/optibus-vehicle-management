@@ -95,6 +95,18 @@ This will concurrently run:
 - **Backend** → `http://localhost:3000`
 - **Frontend** → `http://localhost:5173`
 
+### 4. (Optional) Resolve dependency audit warnings
+`npm install` may report known vulnerabilities in some transitive dependencies under `backend/` and `frontend/`.
+Use the non-breaking fix first:
+```bash
+cd backend
+npm audit fix
+
+cd ../frontend
+npm audit fix
+```
+Avoid using `npm audit fix --force` unless you are prepared to handle potential breaking changes.
+
 ---
 
 ## 🖥️ Frontend Functionality

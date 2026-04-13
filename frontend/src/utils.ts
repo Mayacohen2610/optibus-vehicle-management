@@ -26,29 +26,29 @@ export function useThemeTokens() {
   const isDark = usePrefersDark();
   const palette = isDark
     ? {
-        bg: '#121212',
-        surface: '#1E1E1E',
-        surface2: '#232323',
-        text: '#FFFFFF',
-        textMuted: '#B8B8B8',
-        border: '#383838',
-        accent: '#7CB5FF',
+        bg: '#081325',
+        surface: '#0F213D',
+        surface2: '#18305A',
+        text: '#EAF2FF',
+        textMuted: '#B6C7E3',
+        border: '#284B7A',
+        accent: '#63A8FF',
         danger: '#FF6B6B',
         success: '#3DDC84',
-        inputBg: '#1A1A1A',
-        optionBg: '#1A1A1A'
+        inputBg: '#10274A',
+        optionBg: '#10274A'
       }
     : {
-        bg: '#F6F7FB',
+        bg: '#EDF5FF',
         surface: '#FFFFFF',
-        surface2: '#FAFAFA',
-        text: '#1C1C1C',
-        textMuted: '#60646C',
-        border: '#E5E7EB',
-        accent: '#2563EB',
+        surface2: '#DDEBFF',
+        text: '#0F2647',
+        textMuted: '#4B6588',
+        border: '#B7D1F5',
+        accent: '#1F6FE5',
         danger: '#DC2626',
         success: '#16A34A',
-        inputBg: '#FFFFFF',
+        inputBg: '#F5FAFF',
         optionBg: '#FFFFFF'
       };
 

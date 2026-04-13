@@ -14,13 +14,6 @@
     "createdAt": "2025-10-25T14:41:19.876Z"
   },
   {
-    "id": "v1761403282567",
-    "licensePlate": "222222222",
-    "model": "BMW",
-    "status": "Available",
-    "createdAt": "2025-10-25T14:41:22.567Z"
-  },
-  {
     "id": "v1761403285123",
     "licensePlate": "555555555",
     "model": "FORD",
@@ -40,5 +33,12 @@
     "model": "Mor",
     "status": "Available",
     "createdAt": "2025-11-02T20:49:19.631Z"
+  },
+  {
+    "id": "v1776086001441",
+    "licensePlate": "5736384",
+    "model": "Nadav",
+    "status": "InUse",
+    "createdAt": "2026-04-13T13:13:21.441Z"
   }
 ]
